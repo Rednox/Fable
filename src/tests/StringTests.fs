@@ -1,4 +1,10 @@
-[<NUnit.Framework.TestFixture>] 
+[<NUnit.Framework.TestFixture>]
+#if DOTNETCORE
+//use invariant culture
+[<NUnit.Framework.Culture("")>]
+#else
+[<NUnit.Framework.SetCulture("en-US")>]
+#endif
 module Fable.Tests.Strings
 open System
 open NUnit.Framework
@@ -15,7 +21,45 @@ let ``sprintf works``() =
       let printer = sprintf "Hi %s, good %s!"
       let printer = printer "Alfonso"
       printer "morning" |> equal "Hi Alfonso, good morning!" 
-      printer "evening" |> equal "Hi Alfonso, good evening!" 
+      printer "evening" |> equal "Hi Alfonso, good evening!"
+
+[<Test>]
+let ``sprintf without arguments works``() =
+      sprintf "hello" |> equal "hello"
+
+[<Test>]
+let ``sprintf with escaped percent symbols works``() = // See #195
+      let r, r1, r2 = "Ratio", 0.213849, 0.799898
+      sprintf "%s1: %.2f%% %s2: %.2f%%" r (r1*100.) r (r2*100.)
+      |> equal "Ratio1: 21.38% Ratio2: 79.99%"
+
+[<Test>]
+let ``sprintf with percent symbols in arguments works``() = // See #329
+      let same s = sprintf "%s" s |> equal s
+      same "%"
+      same "%%"
+      same "%%%"
+      same "%%%%"
+      same "% %"
+      same "%% %%"
+      same "%% % % %%"
+
+#if FABLE_COMPILER
+open Fable.Core.JsInterop
+
+[<Test>]
+let ``sprintf "%A" with circular references doesn't crash``() = // See #338
+      let o = obj()
+      o?self <- o
+      sprintf "%A" o |> ignore
+#endif
+
+[<Test>]
+let ``String slicing works``() =
+      let s = "cat and dog"
+      sprintf "%s" s.[2..8] |> equal "t and d"
+      sprintf "%s" s.[2..] |> equal "t and dog"
+      sprintf "%s" s.[..8] |> equal "cat and d"
 
 [<Test>]
 let ``String.Format works``() =
@@ -27,8 +71,8 @@ let ``String.Format works``() =
 let ``String.Format with extra formatting works``() =
       let i = 0.5466788
       let dt = DateTime(2014, 9, 26).AddMinutes(19.)
-      String.Format("{0:F2} {0:P2} {1:yy/MM/dd HH:mm}", i, dt)
-      |> equal "0.55 54.67 % 14/09/26 00:19"
+      String.Format("{0:F2} {0:P2} {1:yyyy-MM-dd HH:mm}", i, dt)
+      |> equal "0.55 54.67 % 2014-09-26 00:19"
           
 [<Test>]
 let ``Padding works``() =
@@ -114,15 +158,31 @@ let ``String.IsNullOrWhiteSpace works``() =
 
 [<Test>]
 let ``String.Split works``() =
+      "a b c  d".Split(' ')
+      |> (=) [|"a";"b";"c";"";"d"|] |> equal true
+      "a b c  d ".Split()
+      |> (=) [|"a";"b";"c";"";"d";""|] |> equal true
       let array = "a;b,c".Split(',', ';')
+      "abc" = array.[0] + array.[1] + array.[2]
+      |> equal true
+      "a--b-c".Split([|"--"|], StringSplitOptions.None)
+      |> (=) [|"a";"b-c"|] |> equal true
+
+[<Test>]
+let ``String.Split with remove empties works``() =
+      "a b c  d ".Split([|" "|], StringSplitOptions.RemoveEmptyEntries)
+      |> (=) [|"a";"b";"c";"d"|] |> equal true
+      let array = ";,a;b,c".Split([|','; ';'|], StringSplitOptions.RemoveEmptyEntries)
       "abc" = array.[0] + array.[1] + array.[2]
       |> equal true
 
 [<Test>]
-let ``String.Split with remove empties works``() =
-      let array = ";,a;b,c".Split([|','; ';'|], StringSplitOptions.RemoveEmptyEntries)
-      "abc" = array.[0] + array.[1] + array.[2]
-      |> equal true
+let ``String.Split with count works``() =
+      let array = "a b  c d".Split ([|' '|], 2)
+      equal "a" array.[0]
+      equal "b  c d" array.[1]
+      "a;,b,c;d".Split([|','; ';'|], 3, StringSplitOptions.RemoveEmptyEntries)
+      |> (=) [|"a";"b";"c;d"|] |> equal true
 
 [<Test>]
 let ``String.Replace works``() =
@@ -170,6 +230,31 @@ let ``String.Trim works``() =
       |> equal "abc"
 
 [<Test>]
+let ``String.Trim with chars works``() =
+      @"\\\abc///".Trim('\\','/')
+      |> equal "abc"
+
+[<Test>]
+let ``String.TrimStart works``() =
+      "!!--abc   ".TrimStart('!','-')
+      |> equal "abc   "
+
+[<Test>]
+let ``String.TrimStart with chars works``() =
+      "   abc   ".TrimStart()
+      |> equal "abc   "
+
+[<Test>]
+let ``String.TrimEnd works``() =
+      "   abc   ".TrimEnd()
+      |> equal "   abc"
+
+[<Test>]
+let ``String.TrimEnd with chars works``() =
+      "   abc??**".TrimEnd('*','?')
+      |> equal "   abc"
+
+[<Test>]
 let ``String.Empty works``() =
       let s = String.Empty
       s |> equal ""
@@ -211,8 +296,21 @@ let ``String.Join works``() =
       String.Join("--", seq { yield "a"; yield "b"; yield "c" })
       |> equal "a--b--c"
 
+[<Test>]
+let ``System.String.Concat works``() =
+      String.Concat("a", "b", "c")
+      |> equal "abc"
+      String.Concat(seq { yield "a"; yield "b"; yield "c" })
+      |> equal "abc"
+
 // String - F# module functions
- 
+
+[<Test>]
+let ``String.concat works``() =
+      String.concat "--" ["a"; "b"; "c"] |> equal "a--b--c"
+      seq { yield "a"; yield "b"; yield "c" }
+      |> String.concat "-" |> equal "a-b-c"
+
 [<Test>]
 let ``String.forall and exists work``() =
       "!!!" |> String.forall (fun c -> c = '!') |> equal true 
@@ -262,3 +360,10 @@ let ``String.mapi works``() =
 let ``String.replicate works``() =
       String.replicate 3 "hi there"
       |> equal "hi therehi therehi there" 
+
+// [<Test>]
+// let ``System.Convert.ToString works``() =
+//       let x = 45
+//       Convert.ToString(x) |> equal "45"
+//       Convert.ToString(x, 2) |> equal "101101"
+//       Convert.ToString(x, 16) |> equal "2d"

@@ -11,15 +11,17 @@ let ``set function works``() =
 
 [<Test>]
 let ``Set.isEmpty works``() =
-    let xs = Set.empty<int>
-    xs |> Seq.isEmpty
-    |> equal true
+    let xs = set []
+    Set.isEmpty xs |> equal true
+    let ys = set [1]
+    Set.isEmpty ys |> equal false
 
 [<Test>]
 let ``Set.IsEmpty works``() =
     let xs = Set.empty<int>
-    xs.IsEmpty
-    |> equal true
+    xs.IsEmpty |> equal true
+    let ys = set [1; 1]
+    ys.IsEmpty |> equal false
 
 [<Test>]
 let ``Set.Count works``() =
@@ -93,10 +95,10 @@ let ``Set.unionMany works``() =
 
 [<Test>]
 let ``Set.intersect works``() =
-    let xs = set [1; 2]
-    let ys = Set.singleton 2
+    let xs = set [1; 2; 3; 4]
+    let ys = set [0; 2; 4; 5]
     let zs = xs |> Set.intersect ys
-    (zs.Contains 2 && not(zs.Contains 1))
+    (zs.Contains 2 && zs.Contains 4 && not(zs.Contains 1) && not(zs.Contains 5))
     |> equal true
 
 [<Test>]
@@ -143,14 +145,14 @@ let ``Set.partition works``() =
 [<Test>]
 let ``Set.fold works``() =
     let xs = set [1.; 2.; 3.; 4.]
-    xs |> Set.fold (+) 0.
-    |> equal 10.
+    xs |> Set.fold (-) 0.
+    |> equal -10.
 
 [<Test>]
 let ``Set.foldBack works``() =
     let xs = set [1.; 2.; 3.; 4.]
-    Set.foldBack (+) xs 0.
-    |> equal 10.
+    Set.foldBack (-) xs 0.
+    |> equal -2.
 
 [<Test>]
 let ``Set.map works``() =
@@ -291,3 +293,33 @@ let ``Set.toSeq works``() =
     let zs = Set.toSeq ys
     (Seq.item 2 xs) = (Seq.item 2 zs)
     |> equal true
+
+type R = { i: int; s: string }
+
+[<Test>]
+let ``Sets can be JSON serialized forth and back``() =
+    let x = [{ i=1; s="1" }; { i=2; s="2" } ] |> set
+    #if FABLE_COMPILER
+    let json = Fable.Core.JsInterop.toJson x
+    let x2 = Fable.Core.JsInterop.ofJson<Set<R>> json
+    #else
+    let json = Newtonsoft.Json.JsonConvert.SerializeObject x
+    let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Set<R>> json
+    #endif
+    x2.IsSubsetOf x |> equal true
+    (0, x2) ||> Set.fold (fun acc v -> acc + v.i)
+    |> equal 3
+
+[<Test>]
+let ``Sets serialized with Json.NET can be deserialized``() =
+    // let x = ["a", { i=1; s="1" }; "b", { i=2; s="2" } ] |> Map    
+    // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
+    let json = """{"$type":"Microsoft.FSharp.Collections.FSharpSet`1[[Fable.Tests.Sets+R, Fable.Tests]], FSharp.Core","$values":[{"$type":"Fable.Tests.Sets+R, Fable.Tests","i":1,"s":"1"},{"$type":"Fable.Tests.Sets+R, Fable.Tests","i":2,"s":"2"}]}"""
+    #if FABLE_COMPILER
+    let x2 = Fable.Core.JsInterop.ofJson<Set<R>> json
+    #else
+    let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Set<R>> json
+    #endif
+    (0, x2) ||> Set.fold (fun acc v -> acc + v.i)
+    |> equal 3
+    

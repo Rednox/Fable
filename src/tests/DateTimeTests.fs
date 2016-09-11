@@ -4,6 +4,14 @@ open System
 open NUnit.Framework
 open Fable.Tests.Util
 
+#if DOTNETCORE
+    type System.DateTime with
+        member x.ToShortDateString() = x.ToString("d")
+        member x.ToShortTimeString() = x.ToString("t")
+        member x.ToLongDateString() = x.ToString("D")
+        member x.ToLongTimeString() = x.ToString("T")
+#endif
+
 let toSigFigs nSigFigs x =
     let absX = abs x
     let digitsToStartOfNumber = floor(log10 absX) + 1. // x > 0 => +ve | x < 0 => -ve
@@ -16,6 +24,30 @@ let thatYearSeconds (dt: DateTime) =
 
 let thatYearMilliseconds (dt: DateTime) =
     (dt - DateTime(dt.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds
+
+[<Test>]
+let ``DateTime.ToString with format works``() =
+    DateTime(2014, 9, 11, 16, 37, 0).ToString("HH:mm")
+    |> equal "16:37"
+
+// TODO
+// [<Test>]
+// let ``TimeSpan.ToString with format works``() =
+//     TimeSpan.FromMinutes(234.).ToString("hh\:mm\:ss")
+//     |> equal "03:54:00"
+
+[<Test>]
+let ``DateTime can be JSON serialized forth and back``() =
+    let utc = DateTime(2016, 8, 4, 17, 30, 0, DateTimeKind.Utc)
+    #if FABLE_COMPILER
+    let json = Fable.Core.JsInterop.toJson utc
+    let utc = Fable.Core.JsInterop.ofJson<DateTime> json
+    #else
+    let json = Newtonsoft.Json.JsonConvert.SerializeObject utc
+    let utc = Newtonsoft.Json.JsonConvert.DeserializeObject<DateTime> json
+    #endif
+    utc.Kind = DateTimeKind.Utc |> equal true
+    utc.ToString("HH:mm") |> equal "17:30"
 
 // TODO: These two tests give different values for .NET and JS because DateTime
 // becomes as a plain JS Date object, so I'm just checking the fields get translated
@@ -372,11 +404,24 @@ let ``DateTime Inequality works``() =
     test 0. false
 
 [<Test>]
+let ``DateTime TimeOfDay works``() =
+    let d = System.DateTime(2014, 10, 9, 13, 23, 30, 1, System.DateTimeKind.Utc)
+    let t = d.TimeOfDay
+
+    t |> equal (TimeSpan(0, 13, 23, 30, 1))
+
+[<Test>]
 let ``TimeSpan constructors work``() =
     let t1 = TimeSpan(20000L)
     let t2 = TimeSpan(3, 3, 3)
     let t3 = TimeSpan(5, 5, 5, 5)
     let t4 = TimeSpan(7, 7, 7, 7, 7)
+
+    t1.TotalMilliseconds |> equal 2.0
+    t2.TotalMilliseconds |> equal 10983000.0
+    t3.TotalMilliseconds |> equal 450305000.0
+    t4.TotalMilliseconds |> equal 630427007.0
+
     t1.TotalMilliseconds + t2.TotalMilliseconds + t3.TotalMilliseconds + t4.TotalMilliseconds
     |> equal 1091715009.0
 
@@ -528,3 +573,47 @@ let ``TimeSpan Inequality works``() =
     test 2000. 1000. true
     test -2000. -2000. false
     
+#if !DOTNETCORE
+// Disabled for .NET Core until System.Timers.Timer is implemented.
+
+[<Test>]
+let ``Timer with AutoReset = true works``() =
+    async {
+        let res = ref 0
+        let t = new Timers.Timer(50.)
+        t.Elapsed.Add(fun ev -> res := !res + 5)
+        t.Start()
+        do! Async.Sleep 125
+        t.Stop()
+        do! Async.Sleep 50
+        equal 10 !res
+    } |> Async.RunSynchronously
+
+[<Test>]
+let ``Timer with AutoReset = false works``() =
+    async {
+        let res = ref 0
+        let t = new Timers.Timer()
+        t.Elapsed.Add(fun ev -> res := !res + 5)
+        t.AutoReset <- false
+        t.Interval <- 25.
+        t.Enabled <- true
+        do! Async.Sleep 100
+        equal 5 !res
+    } |> Async.RunSynchronously
+
+[<Test>]
+let ``Timer.Elapsed.Subscribe works``() =
+    async {
+        let res = ref 0
+        let t = new Timers.Timer(50.)
+        let disp = t.Elapsed.Subscribe(fun ev -> res := !res + 5)
+        t.Start()
+        do! Async.Sleep 125
+        disp.Dispose()
+        do! Async.Sleep 50
+        equal 10 !res
+        t.Stop()
+    } |> Async.RunSynchronously
+
+#endif

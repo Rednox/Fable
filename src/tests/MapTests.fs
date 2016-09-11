@@ -11,15 +11,17 @@ let ``Map construction from lists works``() =
 
 [<Test>]
 let ``Map.isEmpty works``() =
-    let xs = Map.empty<int, int>
-    xs |> Seq.isEmpty
-    |> equal true
+    let xs = Map []
+    Map.isEmpty xs |> equal true
+    let ys = Map [1,1]
+    Map.isEmpty ys |> equal false
 
 [<Test>]
 let ``Map.IsEmpty works``() =
     let xs = Map.empty<int, int>
-    xs.IsEmpty
-    |> equal true
+    xs.IsEmpty |> equal true
+    let ys = Map [1,1; 2,2]
+    ys.IsEmpty |> equal false
 
 [<Test>]
 let ``Map.Count works``() =
@@ -97,14 +99,14 @@ let ``Map.partition works``() =
 [<Test>]
 let ``Map.fold works``() =
     let xs = Map [1,1.; 2,4.; 3,9.; 4,16.]
-    xs |> Map.fold (fun acc k v -> v + acc) 0.
-    |> equal 30.
+    xs |> Map.fold (fun acc k v -> v - acc) 0.
+    |> equal 10.
 
 [<Test>]
 let ``Map.foldBack works``() =
     let xs = Map [1,1.; 2,4.; 3,9.; 4,16.]
-    Map.foldBack (fun k v acc -> v + acc) xs 0.
-    |> equal 30.
+    Map.foldBack (fun k v acc -> v - acc) xs 0.
+    |> equal -10.
 
 [<Test>]
 let ``Map.map works``() =
@@ -195,3 +197,31 @@ let ``Map.toSeq works``() =
     let zs = Map.toSeq ys
     (Seq.item 2 xs |> snd) = (Seq.item 2 zs |> snd)
     |> equal true
+
+type R = { i: int; s: string }
+
+[<Test>]
+let ``Maps can be JSON serialized forth and back``() =
+    let x = ["a", { i=1; s="1" }; "b", { i=2; s="2" } ] |> Map
+    #if FABLE_COMPILER
+    let json = Fable.Core.JsInterop.toJson x
+    let x2 = Fable.Core.JsInterop.ofJson<Map<string, R>> json
+    #else
+    let json = Newtonsoft.Json.JsonConvert.SerializeObject x
+    let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Map<string, R>> json
+    #endif
+    (0, x2) ||> Map.fold (fun acc k v -> acc + v.i)
+    |> equal 3
+
+[<Test>]
+let ``Maps serialized with Json.NET can be deserialized``() =
+    // let x = ["a", { i=1; s="1" }; "b", { i=2; s="2" } ] |> Map    
+    // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
+    let json = """{"$type":"Microsoft.FSharp.Collections.FSharpMap`2[[System.String, mscorlib],[Fable.Tests.Maps+R, Fable.Tests]], FSharp.Core","a":{"$type":"Fable.Tests.Maps+R, Fable.Tests","i":1,"s":"1"},"b":{"$type":"Fable.Tests.Maps+R, Fable.Tests","i":2,"s":"2"}}"""
+    #if FABLE_COMPILER
+    let x2 = Fable.Core.JsInterop.ofJson<Map<string, R>> json
+    #else
+    let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Map<string, R>> json
+    #endif
+    (0, x2) ||> Map.fold (fun acc k v -> acc + v.i)
+    |> equal 3

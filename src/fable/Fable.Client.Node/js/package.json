@@ -1,0 +1,40 @@
+{
+  "name": "fable-compiler",
+  "version": "0.0.1",
+  "description": "F# to JavaScript compiler",
+  "main": "index.js",
+  "bin": {
+    "fable": "./index.js"
+  },
+  "dependencies": {
+    "chokidar": "^1.6.0",
+    "babel-core": "^6.13.2",
+    "babel-dts-generator": "^0.6.2",
+    "babel-plugin-transform-class-properties": "^6.11.5",    
+    "babel-plugin-transform-flow-strip-types": "^6.8.0",
+    "babel-preset-es2015": "^6.13.2",
+    "babel-template": "^6.9.0",
+    "command-line-args": "^3.0.1",
+    "command-line-usage": "^3.0.3",
+    "semver": "^5.3.0"
+  },
+  "author": "Alfonso Garcia-Caro",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fable-compiler/Fable.git"
+  },
+  "keywords": [
+    "fable",
+    "fsharp",
+    "F#"
+  ],
+  "bugs": {
+    "url": "https://github.com/fable-compiler/Fable/issues"
+  },
+  "homepage": "https://github.com/fable-compiler/Fable#readme",
+  "engineStrict": true,
+  "engines": {
+    "node": ">=4.4.0"
+  }
+}

@@ -2,10 +2,16 @@
     "projFile": "Fable.Tests.fsproj",
     "outDir": "../../build/tests",
     "module": "commonjs",
-    "symbols": ["MOCHA"],
-    "plugins": ["../../build/plugins/Fable.Plugins.NUnit.dll"],
-    "copyExt": true,
+    "plugins": ["../plugins/nunit/Fable.Plugins.NUnit.dll"],
     "refs": {
-        "Fable.Tests.Clamp": "./Other"
+        "Fable.Tests.Clamp": "./Another Project",
+        "Fable.Tests.DllRef": "./DllRef"
+    },
+    "targets": {
+        "netcore": {
+            "projFile": "tests.fsx",
+            "symbols": ["DOTNETCORE"],
+            "plugins": ["../plugins/nunit/bin/Release/netstandard1.6/nunit.dll"]
+        }
     }
 }

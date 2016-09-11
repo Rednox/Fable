@@ -1,8 +1,5 @@
 #!/usr/bin/env node
 
-/// <reference path="../../typings/typescript/typescript.d.ts" />
-/// <reference path="../../typings/node/node.d.ts" />
-
 var fs = require("fs");
 var path = require("path");
 var ts = require("typescript");
@@ -18,7 +15,7 @@ open Fable.Import.JS
 `,
 
 interface:
-`[TYPE_KEYWORD] [DECORATOR][NAME][CONSTRUCTOR] =
+`[TYPE_KEYWORD] [<AllowNullLiteral>] [DECORATOR][NAME][CONSTRUCTOR] =
 `,
 
 classProperty:
@@ -163,8 +160,9 @@ var mappedTypes = {
 };
 
 function escape(x) {
-    // HACK: ignore strings with a comment (* ... *)
-    if (x.indexOf("(*") >= 0) {
+    // HACK: ignore strings with a comment (* ... *), tuples ( * )
+    // and union types arrays U2<string,float>[]
+    if (x.indexOf("(*") >= 0 || x.indexOf(" * ") >= 0 || /^U\d+<.*>$/.test(x)) {
         return x;
     }
     var genParams = genReg.exec(x);
@@ -181,9 +179,12 @@ function stringToUnionCase(str) {
             ? str[0].toUpperCase() + str.substr(1)
             : str;
     }
-    return /^[A-Z]/.test(str)
-        ? `[<CompiledName("${str}")>] ${escape(str)}`
-        : escape(upperFirstLetter(str));
+    if (str.length == 0)
+        return `[<CompiledName("")>] EmptyString`;
+    else if (/^[A-Z]/.test(str))
+        return `[<CompiledName("${str}")>] ${escape(str)}`;
+    else
+        return escape(upperFirstLetter(str));
 }
 
 function append(template, txt) {
@@ -219,7 +220,7 @@ function printParameters(parameters, sep, def) {
     sep = sep || ", ", def = def || "";
     function printParameter(x) {
         if (x.rest) {
-            var execed = /ResizeArray<(.*?)>/.exec(escape(x.type));
+            var execed = /^ResizeArray<(.*?)>$/.exec(escape(x.type));
             var type = (execed == null ? "obj" : escape(execed[1])) + "[]";
             return "[<ParamArray>] " + escape(x.name) + ": " + type;
         }
@@ -471,6 +472,9 @@ function printTypeArguments(typeArgs) {
  }
 
 function getType(type) {
+    if (!type) {
+        return "obj";
+    }
     var typeParameters = findTypeParameters(type);
     switch (type.kind) {
         case ts.SyntaxKind.StringKeyword:
@@ -494,8 +498,10 @@ function getType(type) {
         case ts.SyntaxKind.UnionType:
             if (type.types && type.types[0].kind == ts.SyntaxKind.StringLiteralType)
                 return "(* TODO StringEnum " + type.types.map(x=>x.text).join(" | ") + " *) string";
-            else
+            else if (type.types.length <= 4)
                 return "U" + type.types.length + printTypeArguments(type.types);
+            else
+                return "obj";
         case ts.SyntaxKind.TupleType:
             return type.elementTypes.map(getType).join(" * ");
         case ts.SyntaxKind.ParenthesizedType:
@@ -621,7 +627,9 @@ function getMethod(node, opts) {
         name: opts.name || getName(node),
         type: getType(node.type),
         optional: node.questionToken != null,
-        static: opts.static || (node.name ? hasFlag(node.name.parserContextFlags, ts.NodeFlags.Static) : false),
+        static: opts.static
+            || (node.name && hasFlag(node.name.parserContextFlags, ts.NodeFlags.Static))
+            || (node.modifiers && hasFlag(node.modifiers.flags, ts.NodeFlags.Static)),
         parameters: node.parameters.map(getParameter)
     };
     var firstParam = node.parameters[0], secondParam = node.parameters[1];
@@ -667,7 +675,7 @@ function visitInterface(node, opts) {
         var member, name;
         switch (node.kind) {
             case ts.SyntaxKind.PropertySignature:
-            // case ts.SyntaxKind.PropertyDeclaration:
+            case ts.SyntaxKind.PropertyDeclaration:
                 if (node.name.kind == ts.SyntaxKind.ComputedPropertyName) {
                     name = getName(node.name);
                     member = getProperty(node, { name: "["+name+"]" });
@@ -686,7 +694,7 @@ function visitInterface(node, opts) {
                 ifc.methods.push(member);
                 break;
             case ts.SyntaxKind.MethodSignature:
-            // case ts.SyntaxKind.MethodDeclaration:
+            case ts.SyntaxKind.MethodDeclaration:
                 if (node.name.kind == ts.SyntaxKind.ComputedPropertyName) {
                     name = getName(node.name);
                     member = getMethod(node, { name: "["+name+"]" });

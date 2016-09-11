@@ -20,6 +20,12 @@ let ``ResizeArray creation with seq works``() =
     |> equal 15
 
 [<Test>]
+let ``ResizeArray creation with literal array works``() =
+    let li = ResizeArray<_> [|1;2;3;4;5|]
+    Seq.sum li
+    |> equal 15
+
+[<Test>]
 let ``ResizeArray casting to seq works``() =
     let xs = ResizeArray<_>(seq{1..5}) :> seq<_>
     Seq.sum xs
@@ -56,6 +62,13 @@ let ``ResizeArray.Count works``() =
     let li = ResizeArray<_>()
     li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.) 
     equal 5 li.Count
+
+[<Test>]
+let ``ResizeArray.Find works``() =
+    let li = ResizeArray<_>()
+    li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
+    System.Predicate<_> (fun x -> x = 1.)  |> li.Find |> equal 1.
+    System.Predicate<_> (fun x -> x = -1.) |> li.Find |> equal 0.
 
 [<Test>]
 let ``ResizeArray indexer getter works``() =
@@ -141,6 +154,9 @@ let ``ResizeArray.SortInPlace works``() =
     li.Add("Ana"); li.Add("Pedro"); li.Add("Lucía"); li.Add("Paco")
     li.Sort()
     equal "Paco" li.[2]
+    let li2 = ResizeArray [1;3;10;2]
+    li2.Sort()
+    equal 2 li2.[1]
 
 [<Test>]
 let ``ResizeArray.SortInPlaceWith works``() =
@@ -148,3 +164,14 @@ let ``ResizeArray.SortInPlaceWith works``() =
     li.Add(3.); li.Add(6.); li.Add(5.); li.Add(4.); li.Add(8.)
     li.Sort(fun x y -> if x > y then -1 elif x < y then 1 else 0)
     equal 4. li.[3]
+
+[<Test>]
+let ``ResizeArray.ToArray works``() =
+    let li = ResizeArray<_>()
+    li.Add(3.); li.Add(6.); li.Add(5.); li.Add(4.); li.Add(8.)
+    equal 5 li.Count
+    let ar = li.ToArray()
+    Array.length ar |> equal li.Count
+    ar.[0] <- 2.
+    equal 3. li.[0]
+    equal 2. ar.[0]

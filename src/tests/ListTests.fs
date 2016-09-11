@@ -97,12 +97,46 @@ let ``List.collect works``() =
       ys.Head + ys.Tail.Head
       |> equal 3
 
+      let list1 = [10.; 20.; 30.]
+      let collectList = List.collect (fun x -> [for i in 1.0..3.0 -> x * i]) list1
+      sumFirstSeq collectList 9 |> equal 360.
+
+      let xs = [[1.; 2.]; [3.]; [4.; 5.; 6.;]; [7.]]
+      let ys = xs |> List.collect id
+      sumFirstSeq ys 5
+      |> equal 15.
+
 [<Test>]
 let ``List.concat works``() =
       let xs = [[1]; [2]; [3]; [4]]
       let ys = xs |> List.concat
       ys.Head  + ys.Tail.Head
       |> equal 3
+
+      let xs1 = [[1.; 2.; 3.]; [4.; 5.; 6.]; [7.; 8.; 9.]]
+      let ys1 = xs1 |> List.concat
+      sumFirstList ys1 7
+      |> equal 28.
+
+[<Test>]
+let ``List.contains works``() =
+      let xs = [1; 2; 3; 4]
+      xs |> List.contains 2 |> equal true
+      xs |> List.contains 0 |> equal false
+
+[<Test>]
+let ``List.distinct works``() =
+    let xs = [1; 1; 1; 2; 2; 3; 3]
+    let ys = xs |> List.distinct
+    ys |> List.length
+    |> equal 3
+
+[<Test>]
+let ``List.distinctBy works``() =
+    [1; 1; 1; 2; 2; 3; 3]
+    |> List.distinctBy (fun x -> x % 2)
+    |> List.length
+    |> equal 2
 
 [<Test>]
 let ``List.exists works``() =
@@ -136,6 +170,30 @@ let ``List.findIndex works``() =
       |> equal 1
 
 [<Test>]
+let ``List.findBack works``() =
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> List.find ((>) 4.) |> equal 1.
+    xs |> List.findBack ((>) 4.) |> equal 3.
+
+[<Test>]
+let ``List.findIndexBack works``() =
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> List.findIndex ((>) 4.) |> equal 0
+    xs |> List.findIndexBack ((>) 4.) |> equal 2
+
+[<Test>]
+let ``List.tryFindBack works``() =
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> List.tryFind ((>) 4.) |> equal (Some 1.)
+    xs |> List.tryFindBack ((>) 4.) |> equal (Some 3.)
+
+[<Test>]
+let ``List.tryFindIndexBack works``() =
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> List.tryFindIndex ((>) 4.) |> equal (Some 0)
+    xs |> List.tryFindIndexBack ((>) 4.) |> equal (Some 2)      
+
+[<Test>]
 let ``List.fold works``() =
       [1; 2; 3; 4]
       |> List.fold (+) 0
@@ -153,6 +211,12 @@ let ``List.foldBack works``() =
       [1; 2; 3; 4]
       |> List.foldBack (fun x acc -> acc - x) <| 100
       |> equal 90 
+
+[<Test>]
+let ``List.foldBack with composition works``() =
+      [1; 2; 3; 4]
+      |> List.foldBack (fun x acc -> acc >> (+) x) <| id <| 2
+      |> equal 12
 
 [<Test>]
 let ``List.foldBack2 works``() =
@@ -267,6 +331,20 @@ let ``List.mapi2 works``() =
       List.sum zs |> equal 16
 
 [<Test>]
+let ``List.mapFold works`` () =   
+    let xs = [1y; 2y; 3y; 4y]
+    let result = xs |> List.mapFold (fun acc x -> (x * 2y, acc + x)) 0y
+    fst result |> List.sum |> equal 20y
+    snd result |> equal 10y
+
+[<Test>]
+let ``List.mapFoldBack works`` () =   
+    let xs = [1.; 2.; 3.; 4.]
+    let result = List.mapFoldBack (fun x acc -> (x * -2., acc - x)) xs 0.
+    fst result |> List.sum |> equal -20.
+    snd result |> equal -10.
+
+[<Test>]
 let ``List.max works``() =
       let xs = [1; 2]
       xs |> List.max
@@ -300,6 +378,10 @@ let ``List.ofArray works``() =
       let ys = List.ofArray xs
       ys.Head |> equal 1
 
+      let xs1 = [|1.; 2.; 3.; 4.|]
+      let ys1 = List.ofArray xs1
+      sumFirstList ys1 3 |> equal 6.
+
 [<Test>]
 let ``List.ofSeq works``() =
       // let xs = [|1; 2|] :> _ seq
@@ -311,6 +393,8 @@ let ``List.partition works``() =
       let xs = [1; 2; 3; 4; 5; 6]
       let ys, zs = xs |> List.partition (fun x -> x % 2 = 0)
       List.sum zs |> equal 9
+      equal 2 ys.[0]
+      equal 5 zs.[2]
       
 [<Test>]
 let ``List.permute works``() =
@@ -377,10 +461,17 @@ let ``List.scanBack works``() =
 
 [<Test>]
 let ``List.sort works``() =
-      let xs = [3; 4; 1; 2]
-      let ys = xs |> List.sort
-      ys.Head + ys.Tail.Head
-      |> equal 3
+    let xs = [3; 4; 1; -3; 2; 10]
+    xs |> List.sort |> List.take 3 |> List.sum |> equal 0
+    let ys = ["a"; "c"; "B"; "d"]
+    ys |> List.sort |> List.item 1 |> equal "a" 
+
+[<Test>]
+let ``List.sortDescending works``() =
+    let xs = [3; 4; 1; -3; 2; 10]
+    xs |> List.sortDescending |> List.take 3 |> List.sum |> equal 17
+    let ys = ["a"; "c"; "B"; "d"]
+    ys |> List.sortDescending |> List.item 1 |> equal "c"      
 
 [<Test>]
 let ``List.sortBy works``() =
@@ -490,3 +581,80 @@ let ``List "snail" to append works``() =
       let zs = ys @ xs
       zs.Head + zs.Tail.Head
       |> equal 1
+
+[<Test>]
+let ``List.tryItem works``() =
+    let xs = [1.; 2.; 3.; 4.]
+    List.tryItem 3 xs |> equal (Some 4.)
+    List.tryItem 4 xs |> equal None
+    List.tryItem -1 xs |> equal None
+
+[<Test>]
+let ``List.tryHead works``() =
+    let xs = [1.; 2.; 3.; 4.]
+    List.tryHead xs |> equal (Some 1.)
+    List.tryHead [] |> equal None
+
+[<Test>]
+let ``List.last works``() =
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> List.last
+    |> equal 4.
+    
+[<Test>]
+let ``List.tryLast works``() =
+    let xs = [1.; 2.; 3.; 4.]
+    List.tryLast xs |> equal (Some 4.)
+    List.tryLast [] |> equal None
+
+type R = { i: int; s: string }
+
+[<Test>]
+let ``Lists can be JSON serialized forth and back``() =
+    let x = [{ i=1; s="1" }; { i=2; s="2" }]
+    #if FABLE_COMPILER
+    let json = Fable.Core.JsInterop.toJson x
+    let x2 = Fable.Core.JsInterop.ofJson<R list> json
+    #else
+    let json = Newtonsoft.Json.JsonConvert.SerializeObject x
+    let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<R list> json
+    #endif
+    match x2 with
+    | _::[{ i=2; s="2" }] -> true
+    | _ -> false
+    |> equal true
+
+[<Test>]
+let ``Lists serialized with Json.NET can be deserialized``() =
+    // let x = [{ i=1; s="1" }; { i=2; s="2" }]    
+    // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
+    let json = """{"$type":"Microsoft.FSharp.Collections.FSharpList`1[[Fable.Tests.Lists+R, Fable.Tests]], FSharp.Core","$values":[{"$type":"Fable.Tests.Lists+R, Fable.Tests","i":1,"s":"1"},{"$type":"Fable.Tests.Lists+R, Fable.Tests","i":2,"s":"2"}]}"""
+    #if FABLE_COMPILER
+    let x2 = Fable.Core.JsInterop.ofJson<R list> json
+    #else
+    let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<R list> json
+    #endif
+    match x2 with
+    | _::[{ i=2; s="2" }] -> true
+    | _ -> false
+    |> equal true
+
+type List(x: int) =
+    member val Value = x
+
+[<Test>]
+let ``Types with same name as imports work``() =
+      let li = [List 5]
+      equal 5 li.Head.Value 
+
+type ExceptFoo = { Bar:string }
+[<Test>]
+let ``List.except works``() =
+    List.except [2] [1; 3; 2] |> List.last |> equal 3
+    List.except [2] [2; 4; 6] |> List.head |> equal 4
+    List.except [1] [1; 1; 1; 1] |> List.isEmpty |> equal true
+    List.except ['t'; 'e'; 's'; 't'] ['t'; 'e'; 's'; 't'] |> List.isEmpty |> equal true
+    List.except ['t'; 'e'; 's'; 't'] ['t'; 't'] |> List.isEmpty |> equal true
+    List.except [(1, 2)] [(1, 2)] |> List.isEmpty |> equal true
+    List.except [Map.empty |> (fun m -> m.Add(1, 2))] [Map.ofList [(1, 2)]] |> List.isEmpty |> equal true
+    List.except [{ Bar= "test" }] [{ Bar = "test" }] |> List.isEmpty |> equal true

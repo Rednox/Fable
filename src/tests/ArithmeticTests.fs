@@ -20,6 +20,13 @@ let ``Infix divide can be generated``() =
     Assert.AreEqual (4 / 2, 2)
 
 [<Test>]
+let ``Integer division doesn't produce floats``() =
+    Assert.AreEqual (5. / 2., 2.5)
+    Assert.AreEqual (5 / 2, 2)
+    Assert.AreEqual (5 / 3, 1)
+    Assert.AreEqual (float 5 / 2., 2.5)
+
+[<Test>]
 let ``Infix modulo can be generated``() =
     Assert.AreEqual (4 % 3, 1)
 
@@ -181,3 +188,21 @@ let ``Math.log works``() =
 [<Test>]
 let ``Math.log10 works``() =
     Math.Log10 232.12 |> checkTo3dp 2365
+
+[<Test>]
+let ``incr works``() =
+    let i = ref 5
+    incr i
+    Assert.AreEqual(!i, 6)
+    
+[<Test>]
+let ``decr works``() =
+    let i = ref 5
+    decr i
+    Assert.AreEqual(!i, 4)
+    
+[<Test>]
+let ``System.Random works``() =
+    let rnd = System.Random()
+    let x = rnd.Next(5)
+    Assert.AreEqual(true, x >= 0 && x < 5)

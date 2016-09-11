@@ -62,12 +62,29 @@ let ``Dictionary.Count works``() =
     |> equal 10
 
 [<Test>]
-let ``Dictionary indexer getter works``() =
+let ``Dictionary indexer works``() =
     let dic = Dictionary<string,obj>()
-    dic.Add("A", "Hello")
-    dic.Add("B", 2)
+    dic.["A"] <- "Hello"
+    dic.["B"] <- 2
     dic.["B"].ToString()
     |> equal "2"
+
+[<Test>]
+let ``Dictionary.TryGetValue works``() =
+    let dic1 = dict ["A", 1]
+    let dic2 = dict ["B", "2"]
+    let success1, val1 = dic1.TryGetValue("A")
+    let success2, val2 = dic1.TryGetValue("B")
+    let success3, val3 = dic2.TryGetValue("B")
+    let success4, val4 = dic2.TryGetValue("C")
+    equal success1 true
+    equal success2 false
+    equal success3 true
+    equal success4 false
+    equal val1 1
+    equal val2 0
+    equal val3 "2"
+    equal val4 null
 
 [<Test>]
 let ``Dictionary.Keys works``() =
@@ -173,3 +190,35 @@ let ``Interface IDictionary.ContainsKey works``() =
     let dic = dict <| [ ("A", 1.); ("B", 2.) ]
     dic.ContainsKey("A") |> equal true
     dic.ContainsKey("C") |> equal false
+
+type R = { i: int; s: string }
+
+[<Test>]
+let ``Dictionaries can be JSON serialized forth and back``() =
+    let x = Dictionary<_,_>()
+    x.Add("a", { i=1; s="1" })
+    x.Add("b", { i=2; s="2" })    
+    #if FABLE_COMPILER
+    let json = Fable.Core.JsInterop.toJson x
+    let x2 = Fable.Core.JsInterop.ofJson<Dictionary<string, R>> json
+    #else
+    let json = Newtonsoft.Json.JsonConvert.SerializeObject x
+    let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, R>> json
+    #endif
+    (0, x2) ||> Seq.fold (fun acc kv -> acc + kv.Value.i)
+    |> equal 3
+
+[<Test>]
+let ``Dictionaries serialized with Json.NET can be deserialized``() =
+    // let x = Dictionary<_,_>()
+    // x.Add("a", { i=1; s="1" })
+    // x.Add("b", { i=2; s="2" })    
+    // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
+    let json = """{"$type":"System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[Fable.Tests.Maps+R, Fable.Tests]], FSharp.Core","a":{"$type":"Fable.Tests.Maps+R, Fable.Tests","i":1,"s":"1"},"b":{"$type":"Fable.Tests.Maps+R, Fable.Tests","i":2,"s":"2"}}"""
+    #if FABLE_COMPILER
+    let x2 = Fable.Core.JsInterop.ofJson<Dictionary<string, R>> json
+    #else
+    let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, R>> json
+    #endif
+    (0, x2) ||> Seq.fold (fun acc kv -> acc + kv.Value.i)
+    |> equal 3
